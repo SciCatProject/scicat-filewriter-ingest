@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 #
 #
-
 import argparse
 import copy
 import hashlib
@@ -11,6 +10,7 @@ import os
 import re
 import uuid
 from datetime import datetime
+from logging import Logger
 from typing import Any
 from urllib.parse import urljoin
 
@@ -20,6 +20,11 @@ import pytz
 import requests
 from streaming_data_types import deserialise_wrdn
 
+from scicat_ingestor.io import (
+    FileOmittingConfig,
+    omit_hdf_structure,
+    omit_message_as_file,
+)
 from user_office_lib import UserOffice
 
 METADATA_PROPOSAL_PATH = [
@@ -218,7 +223,7 @@ def ingest_message(
     scClient,
     ouClient,
     config,
-    logger,
+    logger: Logger,
 ):
     logger.info("Starting message ingestion")
     entry = deserialise_wrdn(message_value)
@@ -250,41 +255,31 @@ def ingest_message(
     fix_dataset_source_folder = False
 
     # list of files to be added to the dataset
+    metadata = {} if entry.metadata is None else json.loads(entry.metadata)
+    logger.info("Extracted metadata. Extracted {} keys".format(len(metadata.keys())))
+    logger.info("Run options")
+
+    run_options = config["run_options"]
+    logger.info(run_options)
+
+    fo_config = FileOmittingConfig.from_run_options_and_message(run_options, entry)
+
     files_list = []
-    if config["run_options"]["message_to_file"]:
-        message_file_path = ingestor_files_path
-        logger.info("message file will be saved in {}".format(message_file_path))
-        if os.path.exists(message_file_path):
-            message_file_name = (
-                os.path.splitext(file_name)[0]
-                + config["run_options"]["message_file_extension"]
-            )
-            logger.info("message file name : " + message_file_name)
-            message_full_file_path = os.path.join(message_file_path, message_file_name)
-            logger.info("message full file path : " + message_full_file_path)
-            with open(message_full_file_path, 'w') as fh:
-                json.dump(entry, fh)
-            logger.info("message saved to file")
-            if config["run_options"]["message_output"] == "SOURCE_FOLDER":
-                files_list += [
-                    {
-                        "path": message_full_file_path,
-                        "size": len(json.dumps(entry)),
-                    }
-                ]
+
+    if run_options['message_to_file']:
+        msg_file_result = omit_message_as_file(
+            logger, entry, run_options['message_file_extension'], fo_config
+        )
+        if run_options["message_output"] == "SOURCE_FOLDER":
             fix_dataset_source_folder = True
-        else:
-            logger.info("Message file path not accessible")
+            files_list.append(msg_file_result)
 
     if entry.metadata is not None:
-        metadata = json.loads(entry.metadata)
         logger.info(
             "Extracted metadata. Extracted {} keys".format(len(metadata.keys()))
         )
 
         # check if dataset has already been created using job id
-        logger.info("Run options")
-        logger.info(config["run_options"])
         if (
             config["run_options"]["check_by_job_id"]
             and not config["run_options"]["dry_run"]
@@ -318,31 +313,17 @@ def ingest_message(
             logger.info("Removed hdf structure dict from metadata")
         else:
             logger.debug("hdf structure dict : " + json.dumps(hdf_structure_dict))
-        if config["run_options"]["hdf_structure_to_file"]:
-            hdf_structure_file_path = ingestor_files_path
-            logger.info(
-                "hdf structure file will be saved in {}".format(hdf_structure_file_path)
+
+        if run_options['hdf_structure_to_file']:
+            hdf_structure_result = omit_hdf_structure(
+                logger,
+                hdf_structure_dict,
+                run_options["hdf_structure_file_extension"],
+                fo_config,
             )
-            if os.path.exists(hdf_structure_file_path):
-                hdf_structure_file_name = os.path.join(
-                    hdf_structure_file_path,
-                    os.path.splitext(file_name)[0]
-                    + config["run_options"]["hdf_structure_file_extension"],
-                )
-                logger.info("hdf structure file name : " + hdf_structure_file_name)
-                with open(hdf_structure_file_name, 'w') as fh:
-                    json.dump(hdf_structure_dict, fh)
-                logger.info("hdf structure saved to file : " + hdf_structure_file_name)
-                if config["run_options"]["hdf_structure_output"] == "SOURCE_FOLDER":
-                    files_list += [
-                        {
-                            "path": hdf_structure_file_name,
-                            "size": len(json.dumps(hdf_structure_dict)),
-                        }
-                    ]
+            if run_options["hdf_structure_output"] == "SOURCE_FOLDER":
                 fix_dataset_source_folder = True
-            else:
-                logger.info("hdf structure file path not accessible")
+                files_list.append(hdf_structure_result)
 
         # set dataset source folder and fix source folder if needed
         dataset_source_folder = (
@@ -402,7 +383,7 @@ def ingest_message(
         logger.info("Instrument id : {}".format(instrument_id))
         logger.info("Instrument name : {}".format(instrument_name))
         #
-        # the following two lines should be delete, but for the time been we keep them
+        # the following two lines should be deleted, but for the time been we keep them
         # instrument_id = get_nested_value_with_default(
         #     metadata, ['instrument_id'], None, logger
         # )
