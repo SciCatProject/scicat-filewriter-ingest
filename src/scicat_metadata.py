@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 ScicatProject contributors (https://github.com/ScicatProject)
+from collections.abc import Callable
 from importlib.metadata import entry_points
-from typing import Callable
 
 
 def load_metadata_extractors(extractor_name: str) -> Callable:

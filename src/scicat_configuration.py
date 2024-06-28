@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 ScicatProject contributors (https://github.com/ScicatProject)
 import argparse
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping, Optional
 
 
 def build_main_arg_parser() -> argparse.ArgumentParser:
@@ -152,8 +152,8 @@ class RunOptions:
     log_message_prefix: str
     log_level: str
     check_by_job_id: bool
-    system_log_facility: Optional[str] = None
-    pyscicat: Optional[str] = None
+    system_log_facility: str | None = None
+    pyscicat: str | None = None
     graylog: bool = False
 
 
@@ -220,10 +220,10 @@ def build_scicat_config(input_args: argparse.Namespace) -> ScicatConfig:
     ):
         config_dict = json.loads(config_file_path.read_text())
     else:
-        config_dict = dict()
+        config_dict = {}
 
     # Overwrite deep-copied options with command line arguments
-    run_option_dict: dict = copy.deepcopy(config_dict.setdefault("options", dict()))
+    run_option_dict: dict = copy.deepcopy(config_dict.setdefault("options", {}))
     for arg_name, arg_value in vars(input_args).items():
         if arg_value is not None:
             run_option_dict[arg_name] = arg_value
@@ -236,6 +236,6 @@ def build_scicat_config(input_args: argparse.Namespace) -> ScicatConfig:
     return ScicatConfig(
         original_dict=MappingProxyType(config_dict),
         run_options=RunOptions(**run_option_dict),
-        kafka_options=kafkaOptions(**config_dict.setdefault("kafka", dict())),
-        graylog_options=GraylogOptions(**config_dict.setdefault("graylog", dict())),
+        kafka_options=kafkaOptions(**config_dict.setdefault("kafka", {})),
+        graylog_options=GraylogOptions(**config_dict.setdefault("graylog", {})),
     )

@@ -4,13 +4,12 @@ import logging
 from collections.abc import Generator
 
 from confluent_kafka import Consumer
+from scicat_configuration import kafkaOptions
 from streaming_data_types import deserialise_wrdn
 from streaming_data_types.finished_writing_wrdn import (
     FILE_IDENTIFIER as WRDN_FILE_IDENTIFIER,
 )
 from streaming_data_types.finished_writing_wrdn import WritingFinished
-
-from scicat_configuration import kafkaOptions
 
 
 def collect_consumer_options(options: kafkaOptions) -> dict:
@@ -55,7 +54,7 @@ def build_consumer(kafka_options: kafkaOptions, logger: logging.Logger) -> Consu
         return None
 
     kafka_topics = collect_kafka_topics(kafka_options)
-    logger.info(f"Subscribing to the following Kafka topics: {kafka_topics}")
+    logger.info("Subscribing to the following Kafka topics: %s", kafka_topics)
     consumer.subscribe(kafka_topics)
     return Consumer(consumer_options)
 
@@ -66,7 +65,8 @@ def validate_consumer(consumer: Consumer, logger: logging.Logger) -> bool:
     except Exception as err:
         logger.error(
             "Kafka consumer could not be instantiated. "
-            f"Error message from kafka thread: \n{err}"
+            "Error message from kafka thread: \n%s",
+            err,
         )
         return False
     else:

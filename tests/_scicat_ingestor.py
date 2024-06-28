@@ -9,12 +9,11 @@ if __name__ == "__main__":
     from time import sleep
 
     # Run the main function in a subprocess
-    process = subprocess.Popen(
-        [
-            "scicat_ingestor",
-            *(sys.argv[1:] or ["--verbose", "-c", "resources/config.sample.json"]),
-        ]
+    command = (
+        "scicat_ingestor",
+        *(sys.argv[1:] or ["--verbose", "-c", "resources/config.sample.json"]),
     )
+    process = subprocess.Popen(command)  #  noqa: S603
 
     # Send a SIGINT signal to the process after 5 seconds
     sleep(5)

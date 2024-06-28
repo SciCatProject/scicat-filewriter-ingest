@@ -1,14 +1,13 @@
 import pathlib
 
 import pytest
-
 from scicat_configuration import GraylogOptions, RunOptions, ScicatConfig, kafkaOptions
 
 
-@pytest.fixture
+@pytest.fixture()
 def scicat_config(tmp_path: pathlib.Path) -> ScicatConfig:
     return ScicatConfig(
-        original_dict=dict(),
+        original_dict={},
         run_options=RunOptions(
             config_file='test',
             verbose=True,

@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 ScicatProject contributors (https://github.com/ScicatProject)
+import datetime
 import logging
 import logging.handlers
-from datetime import datetime
 
 import graypy
-
 from scicat_configuration import ScicatConfig
 
 
@@ -24,7 +23,9 @@ def build_logger(config: ScicatConfig) -> logging.Logger:
     if run_options.file_log:
         file_name_components = [run_options.log_filepath_prefix]
         if run_options.file_log_timestamp:
-            file_name_components.append(datetime.now().strftime('%Y%m%d%H%M%S%f'))
+            file_name_components.append(
+                datetime.datetime.now(datetime.UTC).strftime('%Y%m%d%H%M%S%f')
+            )
         file_name_components.append('.log')
 
         file_name = '_'.join(file_name_components)

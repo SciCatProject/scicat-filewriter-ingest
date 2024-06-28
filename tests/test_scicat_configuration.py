@@ -3,11 +3,10 @@
 import argparse
 
 import pytest
-
 from scicat_configuration import ScicatConfig
 
 
-@pytest.fixture
+@pytest.fixture()
 def main_arg_parser() -> argparse.ArgumentParser:
     """Return the namespace of the main argument parser."""
     from scicat_configuration import build_main_arg_parser
@@ -34,7 +33,7 @@ def test_scicat_arg_parser_configuration_matches(
     # Parse the configuration file
     assert config_path.exists()
     config_from_file: dict = json.loads(config_path.read_text())
-    main_options: dict = config_from_file.get('options', dict())
+    main_options: dict = config_from_file.get('options', {})
 
     # Check if all keys matches
     all_keys = set(config_from_args.keys()).union(main_options.keys())
@@ -52,7 +51,7 @@ def test_build_scicat_config_default(main_arg_parser: argparse.ArgumentParser) -
     assert scicat_config.run_options.config_file == 'config.20240405.json'
 
 
-@pytest.fixture
+@pytest.fixture()
 def scicat_config(main_arg_parser: argparse.ArgumentParser) -> ScicatConfig:
     from scicat_configuration import build_scicat_config
 

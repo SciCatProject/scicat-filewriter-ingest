@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: d91bf92
+_commit: 1c41c93
 _src_path: gh:scipp/copier_template
 description: A daemon that creates a raw dataset using scicat interface whenever a
     new file is written by a file-writer.
