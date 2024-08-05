@@ -261,6 +261,9 @@ class IngestionOptions:
     dry_run: bool = False
     schemas_directory: str = "schemas"
     offline_ingestor_executable: str = "./scicat_offline_ingestor.py"
+    check_if_dataset_exists_by_pid: bool = False,
+    check_if_dataset_exists_by_metadata: bool = False,
+    check_if_dataset_exists_by_metadata_key: str = "",
 
     @classmethod
     def from_configurations(cls, config: dict) -> "IngestionOptions":
@@ -274,7 +277,6 @@ class IngestionOptions:
 
 @dataclass
 class DatasetOptions:
-    check_by_job_id: bool = True,
     allow_dataset_pid: bool = True,
     generate_dataset_pid: bool = False,
     dataset_pid_prefix: str = "20.500.12269",

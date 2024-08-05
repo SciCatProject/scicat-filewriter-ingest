@@ -8,7 +8,7 @@ import json
 import logging
 import pathlib
 import uuid
-from urllib.parse import urljoin
+from urllib.parse import urljoin, quote
 import os
 
 import h5py
@@ -405,6 +405,83 @@ def _prepare_origdatablock_datafilelist(
     return [_path_to_relative(item,dataset_source_folder) for item in datafiles_list]
 
 
+def _check_if_dataset_exists_by_pid(
+        local_dataset,
+        config,
+        logger
+) -> bool :
+    """
+    Check if a dataset with the same pid exists already in SciCat.
+    """
+    dataset_exists = False
+    if config.ingestion.check_if_dataset_exists_by_pid:
+        if "pid" in local_dataset.keys() and local_dataset["pid"]:
+            logger.info("_check_if_dataset_exists: Checking if dataset with pid {} already exists.".format(local_dataset["pid"]))
+
+            response = requests.request(
+                method="GET",
+                url=urljoin(config.scicat.host, "datasets/{}".format(quote(local_dataset["pid"]))),
+                headers=config.scicat.headers,
+                timeout=config.scicat.timeout,
+                stream=config.scicat.stream,
+                verify=config.scicatverify,
+            )
+
+            if not response.ok:
+                logger.info("Dataset by job id error. status : {} {}".format(response.status_code, response.reason))
+            else:
+                result = response.json()
+                if result:
+                    logger.info("Retrieved Dataset with pid {} from SciCat".format(result["pid"]))
+                    dataset_exists = True
+        else:
+            logger.info("_check_if_dataset_exists: Dataset has no pid associated. Assuming new dataset")
+
+    return dataset_exists
+
+
+def _check_if_dataset_exists_by_metadata(local_dataset, config, logger):
+    """
+    Check if a dataset already exists in SciCat where
+    the metadata key specified has the same value as the dataset that we want to create
+    """
+    dataset_exists = False
+    if config.ingestion.check_if_dataset_exists_by_metadata:
+        metadata_key = config.ingestion.check_if_dataset_exists_by_metadata_key
+
+        if metadata_key in local_dataset["scientificMetadata"].keys() and local_dataset["scientificMetadata"][metadata_key]["value"]:
+            metadata_value = local_dataset["scientificMetadata"][metadata_key]["value"]
+            logger.info("_check_if_dataset_exists_by_metadata: Checking if dataset with scientific metadata key {} "
+                        "set to value {} already exists.".format(metadata_key, metadata_value))
+
+            url = "{}?filter={{\"where\":{}}}".format(
+                urljoin(config.scicat.host, "datasets"),
+                json.dumps({"scientificMetadata.{}.value".format(metadata_key): metadata_value})
+            )
+            logger.info("_check_if_dataset_exists_by_metadata: Url : {}".format(url))
+
+            response = requests.request(
+                method="GET",
+                url=url,
+                headers=config.scicat.headers,
+                timeout=config.scicat.timeout,
+                stream=config.scicat.stream,
+                verify=config.scicatverify,
+            )
+
+            if not response.ok:
+                logger.info("_check_if_dataset_exists_by_metadata: Error. status : {} {}".format(response.status_code, response.reason))
+            else:
+                results = response.json()
+                if results:
+                    logger.info("_check_if_dataset_exists_by_metadata: Retrieved {} Dataset from SciCat".format(len(results)))
+                    dataset_exists = True
+        else:
+            logger.info("_check_if_dataset_exists: Dataset has no pid associated. Assuming new dataset")
+
+    return dataset_exists
+
+
 def main() -> None:
     """Main entry point of the app."""
     arg_parser = build_offline_ingestor_arg_parser()
@@ -506,28 +583,43 @@ def main() -> None:
             logger
         )
 
-        # create dataset in scicat
-        scicat_dataset = _create_scicat_dataset(
-            local_dataset,
-            config,
-            logger
+        dataset_already_present = (
+            _check_if_dataset_exists_by_pid(local_dataset, config, logger) or
+            _check_if_dataset_exists_by_metadata(local_dataset, config, logger)
         )
 
-        # create and populate scicat origdatablock entry
-        # with files and hashes previously computed
-        local_origdatablock = _prepare_scicat_origdatablock(
-            scicat_dataset,
-            origdatablock_datafiles_list,
-            config,
-            logger
-        )
+        if (dataset_already_present):
+            logger.info("Dataset with pid {} already present in SciCat. Skipping it!!!".format(local_dataset["pid"]))
+        else:
+            if (not config.ingestion.dry_run):
+                # create dataset in scicat
+                scicat_dataset = _create_scicat_dataset(
+                    local_dataset,
+                    config,
+                    logger
+                )
+            else:
+                logger.info("This is a dry run. No request is sent to SciCat and no dataset is created in SciCat")
 
-        # create origdatablock in scicat
-        scicat_origdatablock = _create_scicat_origdatablock(
-            local_origdatablock,
-            config,
-            logger
-        )
+            # create and populate scicat origdatablock entry
+            # with files and hashes previously computed
+            local_origdatablock = _prepare_scicat_origdatablock(
+                scicat_dataset,
+                origdatablock_datafiles_list,
+                config,
+                logger
+            )
+
+            if (not config.ingestion.dry_run):
+                # create origdatablock in scicat
+                scicat_origdatablock = _create_scicat_origdatablock(
+                    local_origdatablock,
+                    config,
+                    logger
+                )
+            else:
+                logger.info("This is a dry run. No request is sent to SciCat and no origdatablock is created in SciCat")
+
 
         # check one more time if we successfully created the entries in scicat
-        exit(logger, unexpected=(bool(scicat_dataset) and bool(scicat_origdatablock)))
+        exit(logger, unexpected=not(bool(scicat_dataset) and bool(scicat_origdatablock)))

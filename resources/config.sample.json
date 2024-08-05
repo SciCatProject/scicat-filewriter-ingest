@@ -2,7 +2,6 @@
   "config_file": "config.json",
   "id": "",
   "dataset": {
-    "check_by_job_id": true,
     "allow_dataset_pid": true,
     "generate_dataset_pid": false,
     "dataset_pid_prefix": "20.500.12269",
@@ -17,6 +16,9 @@
     "dry_run": false,
     "offline_ingestor_executable" : "./scicat_offline_ingestor.py",
     "schemas_directory": "schemas",
+    "check_if_dataset_exists_by_pid": true,
+    "check_if_dataset_exists_by_metadata": true,
+    "check_if_dataset_exists_by_metadata_key": "job_id",
     "file_handling": {
       "compute_file_stats": true,
       "compute_file_hash": true,
