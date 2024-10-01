@@ -10,8 +10,6 @@
 -r mypy.txt
 -r static.txt
 -r test.txt
-annotated-types==0.7.0
-    # via pydantic
 build==1.2.1
     # via pip-tools
 click==8.1.7
@@ -20,12 +18,18 @@ click==8.1.7
     #   pip-tools
 copier==9.3.1
     # via -r dev.in
-dunamai==1.21.2
+dunamai==1.22.0
     # via copier
 funcy==2.0
     # via copier
+jinja2==3.1.4
+    # via
+    #   copier
+    #   jinja2-ansible-filters
 jinja2-ansible-filters==1.3.2
     # via copier
+markupsafe==2.1.5
+    # via jinja2
 pathspec==0.12.1
     # via copier
 pip-compile-multi==2.6.4
@@ -36,10 +40,6 @@ plumbum==1.8.3
     # via copier
 prompt-toolkit==3.0.36
     # via questionary
-pydantic==2.8.2
-    # via copier
-pydantic-core==2.20.1
-    # via pydantic
 pyproject-hooks==1.1.0
     # via
     #   build
@@ -50,7 +50,7 @@ toposort==1.10
     # via pip-compile-multi
 wcwidth==0.2.13
     # via prompt-toolkit
-wheel==0.43.0
+wheel==0.44.0
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:

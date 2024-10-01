@@ -6,8 +6,6 @@
 #    pip-compile-multi
 #
 -r basetest.txt
-certifi==2024.7.4
-    # via requests
 charset-normalizer==3.3.2
     # via requests
 confluent-kafka==2.5.0
@@ -20,8 +18,6 @@ graypy==2.1.0
     # via -r nightly.in
 h5py==3.11.0
     # via -r nightly.in
-idna==3.7
-    # via requests
 kafka-python==2.0.2
     # via -r nightly.in
 markdown-it-py==3.0.0

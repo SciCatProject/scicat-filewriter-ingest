@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # Run the main function in a subprocess
     command = (
         "scicat_ingestor",
-        *(sys.argv[1:] or ["--verbose", "-c", "resources/config.sample.json"]),
+        *(sys.argv[1:] or ["--logging.verbose", "-c", "resources/config.sample.json"]),
     )
     process = subprocess.Popen(command)  #  noqa: S603
 
