@@ -1,17 +1,26 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 ScicatProject contributors (https://github.com/ScicatProject)
 
+import logging
 from pathlib import Path
 
 import h5py
-from scicat_communication import create_scicat_dataset, create_scicat_origdatablock
+from scicat_communication import (
+    check_dataset_by_metadata,
+    check_dataset_by_pid,
+    create_scicat_dataset,
+    create_scicat_origdatablock,
+)
 from scicat_configuration import (
+    IngestionOptions,
     OfflineIngestorConfig,
+    SciCatOptions,
     build_arg_parser,
     build_dataclass,
     merge_config_and_input_args,
 )
 from scicat_dataset import (
+    ScicatDataset,
     create_data_file_list,
     create_origdatablock_instance,
     create_scicat_dataset_instance,
@@ -22,7 +31,7 @@ from scicat_dataset import (
 from scicat_logging import build_logger
 from scicat_metadata import collect_schemas, select_applicable_schema
 from scicat_path_helpers import compose_ingestor_directory
-from system_helpers import handle_exceptions
+from system_helpers import exit, handle_exceptions
 
 
 def build_offline_config() -> OfflineIngestorConfig:
@@ -39,6 +48,67 @@ def build_offline_config() -> OfflineIngestorConfig:
     del merged_configuration["kafka"]
 
     return build_dataclass(OfflineIngestorConfig, merged_configuration)
+
+
+def _check_if_dataset_exists_by_pid(
+    local_dataset: ScicatDataset,
+    ingest_config: IngestionOptions,
+    scicat_config: SciCatOptions,
+    logger: logging.Logger,
+) -> bool:
+    """
+    Check if a dataset with the same pid exists already in SciCat.
+    """
+    if ingest_config.check_if_dataset_exists_by_pid and (local_dataset.pid is not None):
+        logger.info(
+            "Checking if dataset with pid %s already exists.", local_dataset.pid
+        )
+        return check_dataset_by_pid(
+            pid=local_dataset.pid, config=scicat_config, logger=logger
+        )
+
+    # Other cases, assuming dataset does not exist
+    return False
+
+
+def _check_if_dataset_exists_by_metadata(
+    local_dataset: ScicatDataset,
+    ingest_config: IngestionOptions,
+    scicat_config: SciCatOptions,
+    logger: logging.Logger,
+):
+    """
+    Check if a dataset already exists in SciCat where
+    the metadata key specified has the same value as the dataset that we want to create
+    """
+    if ingest_config.check_if_dataset_exists_by_metadata:
+        metadata_key = ingest_config.check_if_dataset_exists_by_metadata_key
+        target_metadata: dict = local_dataset.scientificMetadata.get(metadata_key, {})
+        metadata_value = target_metadata.get("value")
+
+        if metadata_value is not None:
+            logger.info(
+                "Checking if dataset with scientific metadata key %s "
+                "set to value %s already exists.",
+                metadata_key,
+                metadata_value,
+            )
+            return check_dataset_by_metadata(
+                metadata_key=metadata_key,
+                metadata_value=metadata_value,
+                config=scicat_config,
+                logger=logger,
+            )
+        else:
+            logger.info(
+                "No value found for metadata key %s specified for checking dataset.",
+                metadata_key,
+            )
+    else:
+        logger.info("No metadata key specified for checking dataset existence.")
+
+    # Other cases, assuming dataset does not exist
+    return False
 
 
 def main() -> None:
@@ -84,21 +154,29 @@ def main() -> None:
 
         # Prepare scicat dataset instance(entry)
         logger.info("Preparing scicat dataset instance ...")
-        local_dataset = scicat_dataset_to_dict(
-            create_scicat_dataset_instance(
-                metadata_schema_id=metadata_schema["id"],
-                metadata_schemas=metadata_schema["schemas"],
-                variable_map=variable_map,
-                data_file_list=data_file_list,
-                config=config.dataset,
-                logger=logger,
+        local_dataset_instance = create_scicat_dataset_instance(
+            metadata_schema_id=metadata_schema["id"],
+            metadata_schemas=metadata_schema["schemas"],
+            variable_map=variable_map,
+            data_file_list=data_file_list,
+            config=config.dataset,
+            logger=logger,
+        )
+        # Check if dataset already exists in SciCat
+        if _check_if_dataset_exists_by_pid(
+            local_dataset_instance, config.ingestion, config.scicat, logger
+        ) or _check_if_dataset_exists_by_metadata(
+            local_dataset_instance, config.ingestion, config.scicat, logger
+        ):
+            logger.warning(
+                "Dataset with pid %s already present in SciCat. Skipping it!!!",
+                local_dataset_instance.pid,
             )
-        )
+            exit(logger, unexpected=False)
+
+        # If dataset does not exist, continue with the creation of the dataset
+        local_dataset = scicat_dataset_to_dict(local_dataset_instance)
         logger.debug("Scicat dataset: %s", local_dataset)
-        # Create dataset in scicat
-        scicat_dataset = create_scicat_dataset(
-            dataset=local_dataset, config=config.scicat, logger=logger
-        )
 
         # Prepare origdatablock
         logger.info("Preparing scicat origdatablock instance ...")
@@ -110,17 +188,35 @@ def main() -> None:
             )
         )
         logger.debug("Scicat origdatablock: %s", local_origdatablock)
-        # create origdatablock in scicat
-        scicat_origdatablock = create_scicat_origdatablock(
-            origdatablock=local_origdatablock, config=config.scicat, logger=logger
-        )
 
-        # check one more time if we successfully created the entries in scicat
-        if not ((len(scicat_dataset) > 0) and (len(scicat_origdatablock) > 0)):
-            logger.error(
-                "Failed to create dataset or origdatablock in scicat.\n"
-                "SciCat dataset: %s\nSciCat origdatablock: %s",
-                scicat_dataset,
-                scicat_origdatablock,
+        # Create dataset in scicat
+        if config.ingestion.dry_run:
+            logger.info(
+                "Dry run mode. Skipping Scicat API calls for creating dataset ..."
             )
-            raise RuntimeError("Failed to create dataset or origdatablock.")
+            exit(logger, unexpected=False)
+        else:
+            scicat_dataset = create_scicat_dataset(
+                dataset=local_dataset, config=config.scicat, logger=logger
+            )
+
+            # create origdatablock in scicat
+            scicat_origdatablock = create_scicat_origdatablock(
+                origdatablock=local_origdatablock, config=config.scicat, logger=logger
+            )
+
+            # check one more time if we successfully created the entries in scicat
+            if not ((len(scicat_dataset) > 0) and (len(scicat_origdatablock) > 0)):
+                logger.error(
+                    "Failed to create dataset or origdatablock in scicat.\n"
+                    "SciCat dataset: %s\nSciCat origdatablock: %s",
+                    scicat_dataset,
+                    scicat_origdatablock,
+                )
+                raise RuntimeError("Failed to create dataset or origdatablock.")
+
+            # check one more time if we successfully created the entries in scicat
+            exit(
+                logger,
+                unexpected=not (bool(scicat_dataset) and bool(scicat_origdatablock)),
+            )

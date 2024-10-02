@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 ScicatProject contributors (https://github.com/ScicatProject)
+import json
 import logging
-from urllib.parse import urljoin
+from typing import Any
+from urllib.parse import quote, urljoin
 
 import requests
 from scicat_configuration import SciCatOptions
@@ -22,6 +24,12 @@ def retrieve_value_from_scicat(
 
 class ScicatDatasetAPIError(Exception):
     pass
+
+
+def _get_from_scicat(
+    *, url: str, headers: dict, timeout: int, stream: bool, verify: bool
+) -> requests.Response:
+    return requests.get(url, headers=headers, timeout=timeout)
 
 
 def _post_to_scicat(*, url: str, posting_obj: dict, headers: dict, timeout: int):
@@ -97,3 +105,72 @@ def create_scicat_origdatablock(
         result['_id'],
     )
     return result
+
+
+def check_dataset_by_pid(
+    pid: str, config: SciCatOptions, logger: logging.Logger
+) -> bool:
+    response = _get_from_scicat(
+        url=urljoin(config.host, f"datasets/{quote(pid)}"),
+        headers=config.headers,
+        timeout=config.timeout,
+        stream=config.stream,
+        verify=config.verify,
+    )
+    dataset_exists: bool
+    if not response.ok:
+        logger.error(
+            "Failed to check dataset existence by pid with status code: %s. "
+            "Error message from scicat backend: \n%s\n"
+            "Assuming the dataset does not exist.",
+            response.status_code,
+            response.reason,
+        )
+        dataset_exists = False
+    elif response.json():
+        logger.info("Dataset with pid %s exists.", pid)
+        dataset_exists = True
+    else:
+        logger.info("Dataset with pid %s does not exist.", pid)
+        dataset_exists = False
+
+    return dataset_exists
+
+
+def check_dataset_by_metadata(
+    metadata_key: str,
+    metadata_value: Any,
+    config: SciCatOptions,
+    logger: logging.Logger,
+) -> bool:
+    metadata_dict = {f"scientificMetadata.{metadata_key}.value": metadata_value}
+    filter_string = '?filter={"where":' + json.dumps(metadata_dict) + "}"
+    url = urljoin(config.host, "datasets") + filter_string
+    logger.info("Checking if dataset exists by metadata with url: %s", url)
+    response = _get_from_scicat(
+        url=url,
+        headers=config.headers,
+        timeout=config.timeout,
+        stream=config.stream,
+        verify=config.verify,
+    )
+    dataset_exists: bool
+    if not response.ok:
+        logger.error(
+            "Failed to check dataset existence by metadata key %s with status code: %s "
+            "Error message from scicat backend: \n%s\n"
+            "Assuming the dataset does not exist.",
+            metadata_key,
+            response.status_code,
+            response.reason,
+        )
+        dataset_exists = False
+    elif response.json():
+        logger.info("Retrieved %s dataset(s) from SciCat", len(response.json()))
+        logger.info("Dataset with metadata %s exists.", metadata_dict)
+        dataset_exists = True
+    else:
+        logger.info("Dataset with metadata %s does not exist.", metadata_dict)
+        dataset_exists = False
+
+    return dataset_exists
