@@ -8,6 +8,7 @@ from inspect import get_annotations
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, TypeVar, get_origin
+from urllib.parse import urljoin
 
 
 def _load_config(config_file: Path) -> dict:
@@ -230,6 +231,22 @@ class DatasetOptions:
 
 
 @dataclass(kw_only=True)
+class _ScicatAPIURLs:
+    datasets: str
+    proposals: str
+    origdatablocks: str
+    instruments: str
+
+
+@dataclass(kw_only=True)
+class ScicatEndpoints:
+    datasets: str = "datasets"
+    proposals: str = "proposals"
+    origdatablocks: str = "origdatablocks"
+    instruments: str = "instruments"
+
+
+@dataclass(kw_only=True)
 class SciCatOptions:
     host: str = "https://scicat.host"
     token: str = "JWT_TOKEN"
@@ -237,12 +254,26 @@ class SciCatOptions:
     timeout: int = 0
     stream: bool = True
     verify: bool = False
+    api_endpoints: ScicatEndpoints = field(default_factory=ScicatEndpoints)
+
+    @property
+    def urls(self) -> _ScicatAPIURLs:
+        return _ScicatAPIURLs(
+            datasets=urljoin(self.host, self.api_endpoints.datasets),
+            proposals=urljoin(self.host, self.api_endpoints.proposals),
+            origdatablocks=urljoin(self.host, self.api_endpoints.origdatablocks),
+            instruments=urljoin(self.host, self.api_endpoints.instruments),
+        )
 
     @classmethod
     def from_configurations(cls, config: dict) -> "SciCatOptions":
         """Create SciCatOptions from a dictionary."""
         options = cls(**config)
-        options.headers = {"Authorization": f"Bearer {options.token}"}
+        options.host = options.host.removesuffix('/') + "/"
+        options.headers = {
+            **options.headers,
+            **{"Authorization": f"Bearer {options.token}"},
+        }
         return options
 
 
@@ -335,9 +366,10 @@ def merge_config_and_input_args(
 
 
 def _validate_config_file(target_type: type[T], config_file: Path) -> T:
+    config = {**_load_config(config_file), "config_file": config_file.as_posix()}
     return build_dataclass(
         target_type,
-        {**_load_config(config_file), "config_file": config_file.as_posix()},
+        config,
     )
 
 

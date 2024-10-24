@@ -11,7 +11,9 @@ def test_dtype_string_converter() -> None:
 
 
 def test_dtype_string_array_converter() -> None:
-    assert convert_to_type("test", "string[]") == ["t", "e", "s", "t"]
+    assert convert_to_type("'test'", "string[]") == ["t", "e", "s", "t"]
+    assert convert_to_type("['test']", "string[]") == ["test"]
+    assert convert_to_type("['test', 'test2']", "string[]") == ["test", "test2"]
     assert convert_to_type([1, 2, 3], "string[]") == ["1", "2", "3"]
     assert convert_to_type([1.1, 2.2, 3.3], "string[]") == ["1.1", "2.2", "3.3"]
 

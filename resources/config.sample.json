@@ -60,6 +60,12 @@
     "headers": {},
     "timeout": 0,
     "stream": true,
-    "verify": false
+    "verify": false,
+    "api_endpoints": {
+      "datasets": "datasets",
+      "proposals": "proposals",
+      "origdatablocks": "origdatablocks",
+      "instruments": "instruments"
+    }
   }
 }

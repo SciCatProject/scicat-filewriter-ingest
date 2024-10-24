@@ -138,8 +138,8 @@ class MetadataSchema:
 
 
 def render_variable_value(var_value: str, variable_registry: dict) -> str:
-    for var_name, var_value in variable_registry.items():
-        var_value = var_value.replace("<" + var_name + ">", str(var_value))
+    for reg_var_name, reg_var_value in variable_registry.items():
+        var_value = var_value.replace("<" + reg_var_name + ">", str(reg_var_value))
 
     if "<" in var_value and ">" in var_value:
         raise Exception(f"Unresolved variable: {var_value}")
@@ -167,7 +167,8 @@ def collect_schemas(dir_path: pathlib.Path) -> OrderedDict[str, MetadataSchema]:
 
 
 def select_applicable_schema(
-    nexus_file: pathlib.Path, schemas: OrderedDict[str, MetadataSchema]
+    nexus_file: pathlib.Path,
+    schemas: OrderedDict[str, MetadataSchema],
 ) -> MetadataSchema:
     """
     Evaluates which metadata schema configuration is applicable to ``nexus_file``.

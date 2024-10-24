@@ -164,3 +164,7 @@ def main() -> None:
                 # check if we need to commit the individual message
                 if config.kafka.individual_message_commit:
                     _individual_message_commit(offline_ingestors, consumer, logger)
+
+
+if __name__ == "__main__":
+    main()

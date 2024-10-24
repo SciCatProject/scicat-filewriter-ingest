@@ -7,6 +7,7 @@ import h5py
 from scicat_communication import create_scicat_dataset, create_scicat_origdatablock
 from scicat_configuration import (
     OfflineIngestorConfig,
+    SciCatOptions,
     build_arg_parser,
     build_dataclass,
     merge_config_and_input_args,
@@ -38,7 +39,10 @@ def build_offline_config() -> OfflineIngestorConfig:
     # with ``OnlineIngestorConfig``.
     del merged_configuration["kafka"]
 
-    return build_dataclass(OfflineIngestorConfig, merged_configuration)
+    config = build_dataclass(OfflineIngestorConfig, merged_configuration)
+    config.scicat = SciCatOptions.from_configurations(merged_configuration["scicat"])
+
+    return config
 
 
 def main() -> None:
@@ -66,11 +70,11 @@ def main() -> None:
         # open nexus file with h5py
         with h5py.File(nexus_file_path) as h5file:
             # load instrument metadata configuration
-            metadata_schema = select_applicable_schema(nexus_file_path, h5file, schemas)
+            metadata_schema = select_applicable_schema(nexus_file_path, schemas)
 
             # define variables values
             variable_map = extract_variables_values(
-                metadata_schema['variables'], h5file, config.scicat
+                metadata_schema.variables, h5file, config
             )
 
         # Collect data-file descriptions
@@ -78,6 +82,7 @@ def main() -> None:
             nexus_file=nexus_file_path,
             ingestor_directory=ingestor_directory,
             config=fh_options,
+            source_folder=variable_map["source_folder"],
             logger=logger,
             # TODO: add done_writing_message_file and nexus_structure_file
         )
@@ -86,8 +91,8 @@ def main() -> None:
         logger.info("Preparing scicat dataset instance ...")
         local_dataset = scicat_dataset_to_dict(
             create_scicat_dataset_instance(
-                metadata_schema_id=metadata_schema["id"],
-                metadata_schemas=metadata_schema["schemas"],
+                metadata_schema_id=metadata_schema.id,
+                metadata_schema=metadata_schema.schema,
                 variable_map=variable_map,
                 data_file_list=data_file_list,
                 config=config.dataset,
@@ -124,3 +129,7 @@ def main() -> None:
                 scicat_origdatablock,
             )
             raise RuntimeError("Failed to create dataset or origdatablock.")
+
+
+if __name__ == "__main__":
+    main()
