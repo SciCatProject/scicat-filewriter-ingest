@@ -156,7 +156,6 @@ def instantiate_user_office_client(config,logger):
     user_office_config = config["user_office"]
     logger.info('Instantiating User Office client')
     logger.info('User Office instance : {}'.format(user_office_config['host']))
-    logger.info('User Office token : {}'.format(user_office_config['token']))
     uoClient = UserOffice(user_office_config["host"])
     uoClient.set_access_token(user_office_config["token"])
     return uoClient
