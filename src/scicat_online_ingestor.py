@@ -37,11 +37,11 @@ from system_helpers import handle_daemon_loop_exceptions
 
 
 def dump_message_to_file_if_needed(
-    *,
-    logger: logging.Logger,
-    message_file_path: pathlib.Path,
-    file_handling_options: FileHandlingOptions,
-    message: WritingFinished,
+        *,
+        logger: logging.Logger,
+        message_file_path: pathlib.Path,
+        file_handling_options: FileHandlingOptions,
+        message: WritingFinished,
 ) -> None:
     """Dump the message to a file according to the configuration."""
     if not file_handling_options.message_to_file:
@@ -93,6 +93,10 @@ def build_online_config(logger: logging.Logger | None = None) -> OnlineIngestorC
     )
 
 
+def _pre_executable_offline_ingestor(offline_ingestor: str | list[str]) -> list[str]:
+    return [offline_ingestor] if isinstance(offline_ingestor, str) else offline_ingestor
+
+
 def main() -> None:
     """Main entry point of the app."""
     tmp_config = build_online_config()
@@ -103,7 +107,7 @@ def main() -> None:
     logger.info('Starting the Scicat online Ingestor with the following configuration:')
     logger.info(config.to_dict())
 
-    with handle_daemon_loop_exceptions(logger=logger):
+    with ((handle_daemon_loop_exceptions(logger=logger))):
         # Kafka consumer
         if (consumer := build_consumer(config.kafka, logger)) is None:
             raise RuntimeError("Failed to build the Kafka consumer")
@@ -135,8 +139,7 @@ def main() -> None:
                     --done-writing-message-file message_file_path
                     # optional depending on the message_saving_options.message_output
                 """
-                cmd = [
-                    config.ingestion.offline_ingestor_executable,
+                cmd = _pre_executable_offline_ingestor(config.ingestion.offline_ingestor_executable) + [
                     "-c",
                     config.config_file,
                     "--nexus-file",
