@@ -132,11 +132,11 @@ def check_dataset_by_pid(
     if response.ok:
         logger.info("Retrieved %s dataset(s) from SciCat", len(response.json()))
         logger.info("Dataset with pid %s exists.", pid)
-    # Filter 403 error code.
-    # Scicat returns 403 error code when the file does not exist.
+    # Filter 404 error code.
+    # Scicat returns 404 error code when the file does not exist.
     # This function is trying to check the existence of the dataset,
-    # therefore 403 error code should not be considered as an error.
-    elif response.status_code == 403:
+    # therefore 404 error code should not be considered as an error.
+    elif response.status_code == 404:
         logger.info("Dataset with pid %s does not exist.", pid)
     else:
         logger.error(
@@ -175,11 +175,11 @@ def check_dataset_by_metadata(
     if response.ok:
         logger.info("Retrieved %s dataset(s) from SciCat", len(response.json()))
         logger.info("Dataset with metadata %s exists.", metadata_dict)
-    # Filter 403 error code.
-    # Scicat returns 403 error code when the file does not exist.
+    # Filter 404 error code.
+    # Scicat returns 404 error code when the file does not exist.
     # This function is trying to check the existence of the dataset,
-    # therefore 403 error code should not be considered as an error.
-    elif response.status_code == 403:
+    # therefore 404 error code should not be considered as an error.
+    elif response.status_code == 404:
         logger.info("Dataset with metadata %s does not exist.", metadata_dict)
     else:
         logger.error(
