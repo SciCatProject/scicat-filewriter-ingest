@@ -75,7 +75,7 @@
       "value" : "<acquisition_team_members>",
       "value_type": "string"
     },
-        "owner_group": {
+    "owner_group": {
       "source": "VALUE",
       "value": "ess_proposal_<proposal_id>",
       "value_type": "string"
