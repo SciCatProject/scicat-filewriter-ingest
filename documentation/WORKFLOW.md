@@ -10,6 +10,6 @@ This decision has improved considerably the time to release of the software, the
 
 The general workflow at the moment is the following:
 
-![SciCat ingestion workflow](./scicat_ingestion_workflow.png)
+![SciCat ingestor workflow](./scicat_ingestor_workflow_1.png)
 
 
